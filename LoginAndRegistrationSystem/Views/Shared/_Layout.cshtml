@@ -23,7 +23,20 @@
                     <li>@Html.ActionLink("Home", "Index", "Home")</li>
                     <li>@Html.ActionLink("About", "About", "Home")</li>
                     <li>@Html.ActionLink("Contact", "Contact", "Home")</li>
+                    
+                    @if (Request.IsAuthenticated)
+                    {
+
+                        <li>@Html.ActionLink(@HttpContext.Current.User.Identity.Name + "", "Index", "Home")</li>
+                        <li>@Html.ActionLink("SignOut", "LogOut", "User")</li>
+                    }
+                    else
+                    {
+                        <li>@Html.ActionLink("Login", "Login", "User")</li>
+                        <li>@Html.ActionLink("SignUp", "Registration", "User")</li>
+                    }
                 </ul>
+                
             </div>
         </div>
     </div>
