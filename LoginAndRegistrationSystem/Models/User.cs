@@ -21,5 +21,6 @@ namespace LoginAndRegistrationSystem.Models
         public string password { get; set; }
         public bool isEmailVerified { get; set; }
         public System.Guid activationCode { get; set; }
+        public string resetPasswordCode { get; set; }
     }
 }

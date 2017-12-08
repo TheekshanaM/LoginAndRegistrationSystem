@@ -13,14 +13,14 @@ namespace LoginAndRegistrationSystem.Controllers
     public class UserController : Controller
     {
         //Registration
-        // GET: User
+        // GET: User/Registration
         [HttpGet]
         public ActionResult Registration()
         {
             return View();
         }
 
-        //Registration
+        //POST User/Registration
         [HttpPost]
         [ValidateAntiForgeryToken]
         public ActionResult Registration([Bind(Exclude = "isEmailVerified , activationCode")] User user)
@@ -69,7 +69,7 @@ namespace LoginAndRegistrationSystem.Controllers
             return View(user);
         }
 
-
+        //GET User/VerifyAccount
         [HttpGet]
         public ActionResult VerifyAccount(string id)
         {
@@ -114,7 +114,15 @@ namespace LoginAndRegistrationSystem.Controllers
                 {
                     if(string.Compare(Crypto.Hash(userLogin.password),user.password) == 0)
                     {
-                        int timeOut = userLogin.RememberMe ? 525600 : 20;
+                        int timeOut=0;
+                        if (userLogin.RememberMe)
+                        {
+                            timeOut = 525600;
+                        }
+                        else
+                        {
+                            timeOut = 20;
+                        }
                         var ticket = new FormsAuthenticationTicket(userLogin.email, userLogin.RememberMe, timeOut);
                         string encripted = FormsAuthentication.Encrypt(ticket);
                         var cookie = new HttpCookie(FormsAuthentication.FormsCookieName, encripted);
@@ -165,17 +173,30 @@ namespace LoginAndRegistrationSystem.Controllers
         }
 
         [NonAction]
-        public void sendVerificationLinkEmail(string email , string activatonCode)
+        public void sendVerificationLinkEmail(string email , string activatonCode , string emailFor = "VerifyAccount")
         {
-            var verifyUrl = "/User/VerifyAccount/" + activatonCode;
+            var verifyUrl = "/User/"+emailFor+"/" + activatonCode;
             var link = Request.Url.AbsoluteUri.Replace(Request.Url.PathAndQuery, verifyUrl);
 
             var fromEmail = new MailAddress("thrinduchulle@gmail.com","thrindu chulle");//your email address
             var toEmail = new MailAddress(email);
-            var fromEmailPassword = "*****";//your email password
-            string subject = "Your account is successdully created !";
+            var fromEmailPassword = "*******";//your email password
 
-            string body = "<br/><br/>Click <a href='" + link + "'>here<a/>";
+            string subject = "";
+            string body = "";
+
+            if (emailFor == "VerifyAccount")
+            {
+                subject = "Your account is successdully created !";
+                body = "<br/><br/>Click <a href='" + link + "'>here<a/>";
+            }
+            else
+            {
+                subject = "Reset password";
+                body = "Click <a href='" + link + "'>Here<a/> to Reset password.";
+            }
+
+            
 
             var smtp = new SmtpClient
             {
@@ -204,5 +225,91 @@ namespace LoginAndRegistrationSystem.Controllers
                 }
                 
         }
+
+        [HttpGet]
+        public ActionResult FogetPassword()
+        {
+            return View();
+        }
+
+        [HttpPost]
+        public ActionResult FogetPassword(string email)
+        {
+            string message = "";
+            Boolean status = false;
+
+            using(MyDbEntities db = new MyDbEntities())
+            {
+                var singlUeser = db.Users.Where(a => a.email == email).FirstOrDefault();
+                if(singlUeser != null)
+                {
+                    string resetCode = Guid.NewGuid().ToString();
+                    sendVerificationLinkEmail(singlUeser.email,resetCode, "ResetPassword");
+                    singlUeser.resetPasswordCode = resetCode;
+
+                    db.Configuration.ValidateOnSaveEnabled = false;
+
+                    db.SaveChanges();
+                    message = "Reset password link has been sent your Email.";
+                }
+                else
+                {
+                    message = "Account Not found !";
+                }
+            }
+            ViewBag.Message = message;
+            return View();
+        }
+
+        [HttpGet]
+        public ActionResult ResetPassword(string id)
+        {
+            using(MyDbEntities db = new MyDbEntities())
+            {
+                var singleUser = db.Users.Where(a => a.resetPasswordCode == id).FirstOrDefault();
+                if(singleUser != null)
+                {
+                    ResetPassword resetModle = new ResetPassword();
+                    resetModle.resetCode = id;
+                    return View(resetModle); 
+                }
+                else
+                {
+                    return HttpNotFound();
+                }
+            }
+
+            
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public ActionResult ResetPassword(ResetPassword model)
+        {
+            var message = "";
+            if (ModelState.IsValid)
+            {
+                using(MyDbEntities db = new MyDbEntities())
+                {
+                    var singelUser = db.Users.Where(a => a.resetPasswordCode == model.resetCode).FirstOrDefault();
+                    if(singelUser != null)
+                    {
+                        singelUser.password = Crypto.Hash(model.newPasswoed);
+                        singelUser.resetPasswordCode = "";
+                        db.Configuration.ValidateOnSaveEnabled = false;
+                        db.SaveChanges();
+                        message = "New password Updated Successfully";
+                    }
+                    
+                }
+            }
+            else
+            {
+                message = "invalid !";
+            }
+            ViewBag.Message = message;
+            return View(model);
+        }
+
     }
 }
